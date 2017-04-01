@@ -3,18 +3,13 @@
 use DateTime;
 use Illuminate\Database\Eloquent\Model;
 
-class Series extends Model
+class Movie extends Model
 {
-    protected $table = 'kinox_series';
+    protected $table = 'kinox_movies';
 
-    protected $fillable = ['id', 'type', 'name', 'language'];
+    protected $fillable = ['id', 'name', 'language'];
 
     public $incrementing = false;
-
-    public function episodes()
-    {
-        return $this->hasMany(Episode::class, 'series_id')->ordered();
-    }
 
     public function updateDue()
     {

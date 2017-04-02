@@ -16,6 +16,7 @@ class KinoxController extends Controller
     const URL_BASE = "https://kinox.to";
     const URL_SEARCH = self::URL_BASE . "/Search.html?q=%s";
     const URL_MEDIA = self::URL_BASE . "/Stream/%s.html";
+    const URL_EPISODE_MIRRORS = self::URL_BASE . "/aGET/MirrorByEpisode/?Addr=%s&Season=%s&Episode=%s";
     const HOSTERS = [
         'StreamCloud.eu' => [
             'class' => 'App\Services\Hosters\Streamcloud',
@@ -115,6 +116,60 @@ class KinoxController extends Controller
         return response()->json($data);
     }
 
+    public function Season(Parser $parser, $id, $season)
+    {
+        $series = Series::find($id);
+
+        if ($series == null || $series->updateDue()) {
+            $this->parseSeries($parser, $id);
+            $series = Series::find($id);
+        }
+
+        $data = new MediaResult(self::PROVIDER, 'series');
+        $data->id = $series->id;
+        $data->name = $series->name;
+        $data->season = $season;
+        $data->episodes = [];
+        foreach ($series->episodes()->where('season', $season)->get() as $episode) {
+            $data->episodes[$episode->episode] = new \stdClass();
+            $data->episodes[$episode->episode]->name = 'Episode ' . $episode->episode;
+            $data->episodes[$episode->episode]->language = $series->language;
+        }
+
+        return response()->json($data);
+    }
+
+    public function Episode(Parser $parser, $id, $season, $episode)
+    {
+        $series = Series::find($id);
+        $this->parseMirrors($parser, $id, $season, $episode);
+
+        $data = new MediaResult(self::PROVIDER, 'series');
+        $data->id = $series->id;
+        $data->name = $series->name;
+        $data->season = $season;
+        $data->episode = $episode;
+        $data->mirrors = [];
+        foreach(Mirror::getBy($id, $season, $episode) as $mirror)
+        {
+            $data->mirrors[] = new \stdClass();
+            $dataMirror = &$data->mirrors[count($data->mirrors) - 1];
+            $dataMirror->name = $mirror->hoster;
+            $dataMirror->id = $mirror->hoster_id;
+            $dataMirror->mp4 = false;
+            $dataMirror->proxy = false;
+            if (array_key_exists($mirror->hoster, self::HOSTERS)) {
+                $hoster = self::HOSTERS[$mirror->hoster];
+                $dataMirror->proxy = $hoster['proxy'];
+                $dataMirror->mp4 = $hoster['mp4'];
+                if ($hoster['wait'] > 0)
+                    $dataMirror->wait = $hoster['wait'];
+            }
+        }
+
+        return response()->json($data);
+    }
+
     private function parseMovie(Parser $parser, $id)
     {
         $movie = Movie::firstOrNew(['id' => $id]);
@@ -162,6 +217,17 @@ class KinoxController extends Controller
                     }
                 }
             }
+        }
+    }
+
+    private function parseMirrors(Parser $parser, $id, $season, $episode)
+    {
+        $page = Curl::to(sprintf(self::URL_EPISODE_MIRRORS, $id, $season, $episode))->get();
+        $parser = $parser->from($page);
+
+        foreach ($parser->getItems("//li") as $li) {
+            Mirror::updateOrCreate(['media_id' => $id, 'season' => $season, 'episode' => $episode, 'hoster_id' => intval($this->getHoster($li->getAttribute('id'))), 'hoster' => $parser->getText(".//div[1]", $li)],
+                ['count' => $this->getMirrorCount($parser->getText(".//div[2]", $li))]);
         }
     }
 

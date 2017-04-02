@@ -6,6 +6,12 @@ use App\Models\Kinox\Mirror;
 use App\Models\Kinox\Movie;
 use App\Models\Kinox\Series;
 use App\Models\MediaResult;
+use App\Models\SearchResult;
+use App\Models\Series as JsonSeries;
+use App\Models\Season as JsonSeason;
+use App\Models\Episode as JsonEpisode;
+use App\Models\Mirror as JsonMirror;
+use App\Models\Movie as JsonMovie;
 use App\Services\ParserService as Parser;
 use Curl;
 use Event;
@@ -37,20 +43,17 @@ class KinoxController extends Controller
         $page = Curl::to(sprintf(self::URL_SEARCH, $search))->get();
         $parser = $parser->from($page);
 
-        $results = array();
+        $results = [];
         foreach ($parser->getItems("//*[@id='RsltTableStatic']//tbody[1]//tr") as $tr) {
             $img = $parser->getAttribute(".//td[1]//img[1]", 'src', $tr);
             $link = $parser->getAttribute(".//td[3]//a[1]", 'href', $tr);
             $type = $parser->getAttribute(".//td[2]//img[1]", 'title', $tr);
 
-            $result = new MediaResult(self::PROVIDER, $type);
-            $result->id = $this->getStreamId($link);
-            $result->name = $parser->getText(".//td[3]//a[1]", $tr);
+            $result = new SearchResult(self::PROVIDER, $type, $this->getStreamId($link), $parser->getText(".//td[3]//a[1]", $tr));
             $result->language = $this->getLanguage($img);
 
-            if (starts_with($link, '/')) {
+            if (starts_with($link, '/'))
                 array_push($results, $result);
-            }
         }
 
         return $results;
@@ -65,28 +68,22 @@ class KinoxController extends Controller
             $movie = Movie::find($id);
         }
 
-        $data = new MediaResult(self::PROVIDER, 'movie');
-        $data->id = $movie->id;
-        $data->name = $movie->name;
-        $data->mirrors = [];
+        $retMovie = new JsonMovie(self::PROVIDER, $movie->id);
+        $retMovie->name = $movie->name;
         foreach(Mirror::getBy($id, 0, 0) as $mirror)
         {
-            $data->mirrors[] = new \stdClass();
-            $dataMirror = &$data->mirrors[count($data->mirrors) - 1];
-            $dataMirror->name = $mirror->hoster;
-            $dataMirror->id = $mirror->hoster_id;
-            $dataMirror->mp4 = false;
-            $dataMirror->proxy = false;
+            $retMirror = new JsonMirror($mirror->hoster_id, $mirror->hoster);
             if (array_key_exists($mirror->hoster, self::HOSTERS)) {
                 $hoster = self::HOSTERS[$mirror->hoster];
-                $dataMirror->proxy = $hoster['proxy'];
-                $dataMirror->mp4 = $hoster['mp4'];
+                $retMirror->proxy = $hoster['proxy'];
+                $retMirror->mp4 = $hoster['mp4'];
                 if ($hoster['wait'] > 0)
-                    $dataMirror->wait = $hoster['wait'];
+                    $retMirror->wait = $hoster['wait'];
             }
+            $retMovie->AddMirror($retMirror);
         }
 
-        return response()->json($data);
+        return response()->json($retMovie);
     }
 
     public function Series(Parser $parser, $id)
@@ -98,22 +95,17 @@ class KinoxController extends Controller
             $series = Series::find($id);
         }
 
-        $data = new MediaResult(self::PROVIDER, 'series');
-        $data->id = $series->id;
-        $data->name = $series->name;
-        $data->seasons = [];
-        foreach ($series->episodes as $episode) {
-            if (!array_key_exists($episode->season, $data->seasons)) {
-                $data->seasons[$episode->season] = new \stdClass();
-                $data->seasons[$episode->season]->language = $series->language;
-                $data->seasons[$episode->season]->episodes = [];
+        $retSeries = new JsonSeries(self::PROVIDER, $series->id);
+        $retSeries->name = $series->name;
+        foreach ($series->episodes as $episode)
+        {
+            if (!$retSeries->ContainsSeason($episode->season)) {
+                $retSeason = new JsonSeason($episode->season);
+                $retSeries->AddSeason($retSeason);
             }
-            $data->seasons[$episode->season]->episodes[$episode->episode] = new \stdClass();
-            $data->seasons[$episode->season]->episodes[$episode->episode]->name = 'Episode ' . $episode->episode;
-            $data->seasons[$episode->season]->episodes[$episode->episode]->language = null;
         }
 
-        return response()->json($data);
+        return response()->json($retSeries);
     }
 
     public function Season(Parser $parser, $id, $season)
@@ -125,49 +117,42 @@ class KinoxController extends Controller
             $series = Series::find($id);
         }
 
-        $data = new MediaResult(self::PROVIDER, 'series');
-        $data->id = $series->id;
-        $data->name = $series->name;
-        $data->season = $season;
-        $data->episodes = [];
-        foreach ($series->episodes()->where('season', $season)->get() as $episode) {
-            $data->episodes[$episode->episode] = new \stdClass();
-            $data->episodes[$episode->episode]->name = 'Episode ' . $episode->episode;
-            $data->episodes[$episode->episode]->language = $series->language;
+        $retSeason = new JsonSeason($season);
+        foreach ($series->episodes()->where('season', $season)->get() as $episode)
+        {
+            $retEpisode = new JsonEpisode($episode->episode);
+            $retSeason->AddEpisode($retEpisode);
         }
 
-        return response()->json($data);
+        return response()->json($retSeason);
     }
 
     public function Episode(Parser $parser, $id, $season, $episode)
     {
         $series = Series::find($id);
-        $this->parseMirrors($parser, $id, $season, $episode);
 
-        $data = new MediaResult(self::PROVIDER, 'series');
-        $data->id = $series->id;
-        $data->name = $series->name;
-        $data->season = $season;
-        $data->episode = $episode;
-        $data->mirrors = [];
-        foreach(Mirror::getBy($id, $season, $episode) as $mirror)
-        {
-            $data->mirrors[] = new \stdClass();
-            $dataMirror = &$data->mirrors[count($data->mirrors) - 1];
-            $dataMirror->name = $mirror->hoster;
-            $dataMirror->id = $mirror->hoster_id;
-            $dataMirror->mp4 = false;
-            $dataMirror->proxy = false;
-            if (array_key_exists($mirror->hoster, self::HOSTERS)) {
-                $hoster = self::HOSTERS[$mirror->hoster];
-                $dataMirror->proxy = $hoster['proxy'];
-                $dataMirror->mp4 = $hoster['mp4'];
-                if ($hoster['wait'] > 0)
-                    $dataMirror->wait = $hoster['wait'];
-            }
+        if ($series == null || $series->updateDue()) {
+            $this->parseSeries($parser, $id);
+            $series = Series::find($id);
         }
 
-        return response()->json($data);
+        $this->parseMirrors($parser, $id, $season, $episode);
+
+        $retEpisode = new JsonEpisode($episode);
+        foreach(Mirror::getBy($id, $season, $episode) as $mirror)
+        {
+            $retMirror = new JsonMirror($mirror->hoster_id, $mirror->hoster);
+            if (array_key_exists($mirror->hoster, self::HOSTERS)) {
+                $hoster = self::HOSTERS[$mirror->hoster];
+                $retMirror->proxy = $hoster['proxy'];
+                $retMirror->mp4 = $hoster['mp4'];
+                if ($hoster['wait'] > 0)
+                    $retMirror->wait = $hoster['wait'];
+            }
+            $retEpisode->AddMirror($retMirror);
+        }
+
+        return response()->json($retEpisode);
     }
 
     private function parseMovie(Parser $parser, $id)

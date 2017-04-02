@@ -4,8 +4,11 @@ use App\Events\NewEpisodeEvent;
 use App\Models\BurningSeries\Mirror;
 use App\Models\BurningSeries\Series;
 use App\Models\BurningSeries\Episode;
-use App\Models\MediaResult;
-use App\Services\ParserService as Parser;
+use App\Models\SearchResult;
+use App\Models\Series as JsonSeries;
+use App\Models\Season as JsonSeason;
+use App\Models\Episode as JsonEpisode;
+use App\Models\Mirror as JsonMirror;
 use Curl;
 use Event;
 
@@ -17,13 +20,6 @@ class BurningSeriesController extends Controller
     const URL_SERIES = self::URL_BASE . "/series/%s/%s";
     const URL_MIRRORS = self::URL_BASE . "/series/%s/%s/%s";
     const HOSTERS = [
-/*        'Streamcloud' => [
-            'class' => 'App\Services\Hosters\Streamcloud',
-            'mp4' => true,
-            'proxy' => true,
-            'premium' => false,
-            'wait' => 0
-        ],*/
         'Vivo' => [
             'class' => 'App\Services\Hosters\Vivo',
             'mp4' => true,
@@ -99,12 +95,9 @@ class BurningSeriesController extends Controller
         $searchResults = Series::search($search);
 
         $results = [];
-        foreach($searchResults as $searchResult) {
-            $result = new MediaResult(self::PROVIDER, 'series');
-            $result->id = $searchResult->id;
-            $result->name = $searchResult->name;
-            $result->language = null;
-
+        foreach($searchResults as $searchResult)
+        {
+            $result = new SearchResult(self::PROVIDER, 'series', $searchResult->id, $searchResult->name);
             array_push($results, $result);
         }
 
@@ -118,22 +111,18 @@ class BurningSeriesController extends Controller
         if ($series->updateDue())
             $this->parseSeries($series->id);
 
-        $data = new MediaResult(self::PROVIDER, 'series');
-        $data->id = $series->id;
-        $data->name = $series->name;
-        $data->seasons = [];
-        foreach($series->episodes as $episode) {
-            if (!array_key_exists($episode->season, $data->seasons)) {
-                $data->seasons[$episode->season] = new \stdClass();
-                $data->seasons[$episode->season]->language = $series->episodes()->whereRaw("season = ? AND german = ''", [$episode->season])->count() > 0 ? $series->episodes()->whereRaw("season = ? AND german != ''", [$episode->season])->count() > 0 ? 'de/en' : 'en' : 'de';
-                $data->seasons[$episode->season]->episodes = [];
+        $retSeries = new JsonSeries(self::PROVIDER, strval($series->id));
+        $retSeries->name = $series->name;
+        foreach($series->episodes as $episode)
+        {
+            if (!$retSeries->ContainsSeason($episode->season)) {
+                $retSeason = new JsonSeason($episode->season);
+                $retSeason->language = $series->episodes()->whereRaw("season = ? AND german = ''", [$episode->season])->count() > 0 ? $series->episodes()->whereRaw("season = ? AND german != ''", [$episode->season])->count() > 0 ? 'de/en' : 'en' : 'de';
+                $retSeries->AddSeason($retSeason);
             }
-            $data->seasons[$episode->season]->episodes[$episode->episode] = new \stdClass();
-            $data->seasons[$episode->season]->episodes[$episode->episode]->name = $episode->name();
-            $data->seasons[$episode->season]->episodes[$episode->episode]->language = $episode->language();
         }
 
-        return response()->json($data);
+        return response()->json($retSeries);
     }
 
     public function Season($id, $season)
@@ -143,20 +132,17 @@ class BurningSeriesController extends Controller
         if ($series->updateDue())
             $this->parseSeries($series->id);
 
-        $data = new MediaResult(self::PROVIDER, 'series');
-        $data->id = $series->id;
-        $data->name = $series->name;
-        $data->season = $season;
-        $data->episodes = array();
-        foreach ($series->episodes()->where('season', $season)->get() as $episode) {
-            $data->episodes[$episode->episode] = new \stdClass();
-            $data->episodes[$episode->episode]->episode = $episode->episode;
-            $data->episodes[$episode->episode]->name = $episode->name();
-            $data->episodes[$episode->episode]->language = $episode->language();
+        $retSeason = new JsonSeason($season);
+        $retSeason->language = $series->episodes()->whereRaw("season = ? AND german = ''", [$season])->count() > 0 ? $series->episodes()->whereRaw("season = ? AND german != ''", [$season])->count() > 0 ? 'de/en' : 'en' : 'de';
+        foreach ($series->episodes()->where('season', $season)->get() as $episode)
+        {
+            $retEpisode = new JsonEpisode($episode->episode);
+            $retEpisode->name = $episode->name();
+            $retEpisode->language = $episode->language();
+            $retSeason->AddEpisode($retEpisode);
         }
-        $data->episodes = array_values($data->episodes);
 
-        return response()->json($data);
+        return response()->json($retSeason);
     }
 
     public function Episode($id, $season, $episode)
@@ -165,33 +151,23 @@ class BurningSeriesController extends Controller
 
         if ($series->updateDue())
             $this->parseSeries($series->id);
-
         $this->parseMirrors($id, $season, $episode);
 
-        $data = new MediaResult(self::PROVIDER, 'series');
-        $data->id = $series->id;
-        $data->name = $series->name;
-        $data->season = $season;
-        $data->episode = $episode;
-        $data->mirrors = [];
+        $retEpisode = new JsonEpisode($episode);
         foreach(Mirror::getBy($id, $season, $episode) as $mirror)
         {
-            $data->mirrors[] = new \stdClass();
-            $dataMirror = &$data->mirrors[count($data->mirrors) - 1];
-            $dataMirror->name = $mirror->hoster;
-            $dataMirror->id = $mirror->hoster;
-            $dataMirror->mp4 = false;
-            $dataMirror->proxy = false;
+            $retMirror = new JsonMirror($mirror->hoster, $mirror->hoster);
             if (array_key_exists($mirror->hoster, self::HOSTERS)) {
                 $hoster = self::HOSTERS[$mirror->hoster];
-                $dataMirror->proxy = $hoster['proxy'];
-                $dataMirror->mp4 = $hoster['mp4'];
+                $retMirror->proxy = $hoster['proxy'];
+                $retMirror->mp4 = $hoster['mp4'];
                 if ($hoster['wait'] > 0)
-                    $dataMirror->wait = $hoster['wait'];
+                    $retMirror->wait = $hoster['wait'];
             }
+            $retEpisode->AddMirror($retMirror);
         }
 
-        return response()->json($data);
+        return response()->json($retEpisode);
     }
 
     private function parseSeries($id)
@@ -201,9 +177,9 @@ class BurningSeriesController extends Controller
         // TODO: Check for END
         $s = $series->created_at == $series->updated_at ? 1 : \DB::select("SELECT MIN(season) As season FROM
 (
-    SELECT MAX(season) AS season FROM video_bs_episodes WHERE series_id = ?
+    SELECT MAX(season) AS season FROM bs_episodes WHERE series_id = ?
     UNION
-    SELECT MIN(season) AS season FROM video_bs_episodes where series_id = ? AND german = ''
+    SELECT MIN(season) AS season FROM bs_episodes where series_id = ? AND german = ''
 ) AS seasons", [$series->id, $series->id])[0]->season;
         $maxSeasons = $s;
 

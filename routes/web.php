@@ -20,7 +20,8 @@ $app->group(['prefix' => \App\Http\Controllers\BurningSeriesController::PROVIDER
     $app->get('search/{search}', ['as' => 'search', 'uses' => 'BurningSeriesController@Search']);
     $app->get('series/{id}', ['as' => 'series', 'uses' => 'BurningSeriesController@Series']);
     $app->get('series/{id}/{season}', ['as' => 'season', 'uses' => 'BurningSeriesController@Season']);
-    $app->get('series/{id}/{season}/{episode}', ['as' => 'season', 'uses' => 'BurningSeriesController@Episode']);
+    $app->get('series/{id}/{season}/{episode}', ['as' => 'episode', 'uses' => 'BurningSeriesController@Episode']);
+    $app->get('series/{id}/{season}/{episode}/{hoster}', ['as' => 'mirror', 'uses' => 'BurningSeriesController@Mirror']);
 });
 
 $app->group(['prefix' => \App\Http\Controllers\KinoxController::PROVIDER, 'as' => \App\Http\Controllers\KinoxController::PROVIDER], function () use ($app) {

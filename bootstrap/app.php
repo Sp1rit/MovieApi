@@ -91,6 +91,7 @@ if ($app->environment() !== 'production') {
 }
 $app->register(Ixudra\Curl\CurlServiceProvider::class);
 $app->register(App\Providers\ParserServiceProvider::class);
+$app->register(App\Providers\HostersServiceProvider::class);
 
 /*
 |--------------------------------------------------------------------------

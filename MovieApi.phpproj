@@ -1,0 +1,134 @@
+﻿<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Name>MovieApi</Name>
+    <ProjectGuid>{8664046d-190b-4d8d-944c-59cb4b3f653f}</ProjectGuid>
+    <RootNamespace>
+    </RootNamespace>
+    <OutputType>Library</OutputType>
+    <ProjectTypeGuids>{A0786B88-2ADB-4C21-ABE8-AA2D79766269}</ProjectTypeGuids>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <IncludeDebugInformation>true</IncludeDebugInformation>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <IncludeDebugInformation>false</IncludeDebugInformation>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="app\Console\Commands\.gitkeep" />
+    <Compile Include="app\Console\Kernel.php" />
+    <Compile Include="app\Events\Event.php" />
+    <Compile Include="app\Events\NewEpisodeEvent.php" />
+    <Compile Include="app\Exceptions\Handler.php" />
+    <Compile Include="app\Http\Controllers\BurningSeriesController.php" />
+    <Compile Include="app\Http\Controllers\Controller.php" />
+    <Compile Include="app\Http\Controllers\KinoxController.php" />
+    <Compile Include="app\Http\Controllers\Movie4kController.php" />
+    <Compile Include="app\Http\Middleware\Authenticate.php" />
+    <Compile Include="app\Jobs\ExampleJob.php" />
+    <Compile Include="app\Jobs\Job.php" />
+    <Compile Include="app\Listeners\ExampleListener.php" />
+    <Compile Include="app\Models\BurningSeries\Episode.php" />
+    <Compile Include="app\Models\BurningSeries\Mirror.php" />
+    <Compile Include="app\Models\BurningSeries\Series.php" />
+    <Compile Include="app\Models\Kinox\Episode.php" />
+    <Compile Include="app\Models\Kinox\Mirror.php" />
+    <Compile Include="app\Models\Kinox\Movie.php" />
+    <Compile Include="app\Models\Kinox\Series.php" />
+    <Compile Include="app\Models\Movie4k\Mirror.php" />
+    <Compile Include="app\Models\Movie4k\Movie.php" />
+    <Compile Include="app\Models\Episode.php" />
+    <Compile Include="app\Models\Error.php" />
+    <Compile Include="app\Models\MediaResult.php" />
+    <Compile Include="app\Models\Mirror.php" />
+    <Compile Include="app\Models\Movie.php" />
+    <Compile Include="app\Models\SearchResult.php" />
+    <Compile Include="app\Models\Season.php" />
+    <Compile Include="app\Models\Series.php" />
+    <Compile Include="app\Models\Stream.php" />
+    <Compile Include="app\Providers\AppServiceProvider.php" />
+    <Compile Include="app\Providers\AuthServiceProvider.php" />
+    <Compile Include="app\Providers\EventServiceProvider.php" />
+    <Compile Include="app\Providers\HostersServiceProvider.php" />
+    <Compile Include="app\Providers\ParserServiceProvider.php" />
+    <Compile Include="app\Services\HostersService.php" />
+    <Compile Include="app\Services\Hosters\Hoster.php" />
+    <Compile Include="app\Services\Hosters\Vivo.php" />
+    <Compile Include="app\Services\Parser.php" />
+    <Compile Include="app\Services\ParserService.php" />
+    <Compile Include="bootstrap\app.php" />
+    <Compile Include="database\factories\ModelFactory.php" />
+    <Compile Include="database\migrations\.gitkeep" />
+    <Compile Include="database\migrations\2016_04_15_164617_create_bs_series_table.php" />
+    <Compile Include="database\migrations\2016_04_15_181555_create_bs_episodes_table.php" />
+    <Compile Include="database\migrations\2016_04_15_183104_create_bs_mirrors_table.php" />
+    <Compile Include="database\migrations\2016_04_15_190105_create_kinox_series_table.php" />
+    <Compile Include="database\migrations\2016_04_15_190624_create_kinox_movies_table.php" />
+    <Compile Include="database\migrations\2016_04_15_192437_create_kinox_episodes_table.php" />
+    <Compile Include="database\migrations\2016_04_15_210058_create_kinox_mirrors_table.php" />
+    <Compile Include="database\migrations\2016_04_28_181252_create_movie4k_movies_table.php" />
+    <Compile Include="database\migrations\2016_04_28_181723_create_movie4k_mirrors_table.php" />
+    <Compile Include="database\seeds\DatabaseSeeder.php" />
+    <Compile Include="public\.htaccess" />
+    <Compile Include="public\index.php" />
+    <Compile Include="resources\views\.gitkeep" />
+    <Compile Include="routes\web.php" />
+    <Compile Include="storage\app\.gitignore" />
+    <Compile Include="storage\framework\cache\.gitignore" />
+    <Compile Include="storage\framework\views\.gitignore" />
+    <Compile Include="storage\logs\.gitignore" />
+    <Compile Include="storage\logs\lumen.log" />
+    <Compile Include="tests\ExampleTest.php" />
+    <Compile Include="tests\TestCase.php" />
+    <Compile Include=".env" />
+    <Compile Include=".env.example" />
+    <Compile Include=".gitignore" />
+    <Compile Include=".phpstorm.meta.php" />
+    <Compile Include="artisan" />
+    <Compile Include="composer" />
+    <Compile Include="composer.json" />
+    <Compile Include="composer.lock" />
+    <Compile Include="composer.phar" />
+    <Compile Include="Homestead.yaml" />
+    <Compile Include="LICENSE" />
+    <Compile Include="phpunit.xml" />
+    <Compile Include="README.md" />
+    <Compile Include="Vagrantfile" />
+    <Compile Include="_ide_helper.php" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="app\Console\Commands" />
+    <Folder Include="app\Console" />
+    <Folder Include="app\Events" />
+    <Folder Include="app\Exceptions" />
+    <Folder Include="app\Http\Controllers" />
+    <Folder Include="app\Http\Middleware" />
+    <Folder Include="app\Http" />
+    <Folder Include="app\Jobs" />
+    <Folder Include="app\Listeners" />
+    <Folder Include="app\Models\BurningSeries" />
+    <Folder Include="app\Models\Kinox" />
+    <Folder Include="app\Models\Movie4k" />
+    <Folder Include="app\Models" />
+    <Folder Include="app\Providers" />
+    <Folder Include="app\Services" />
+    <Folder Include="app" />
+    <Folder Include="app\Services\Hosters\" />
+    <Folder Include="bootstrap" />
+    <Folder Include="database\factories" />
+    <Folder Include="database\migrations" />
+    <Folder Include="database\seeds" />
+    <Folder Include="database" />
+    <Folder Include="public" />
+    <Folder Include="resources\views" />
+    <Folder Include="resources" />
+    <Folder Include="routes" />
+    <Folder Include="storage\app" />
+    <Folder Include="storage\framework\cache" />
+    <Folder Include="storage\framework\views" />
+    <Folder Include="storage\framework" />
+    <Folder Include="storage\logs" />
+    <Folder Include="storage" />
+    <Folder Include="tests" />
+  </ItemGroup>
+</Project>
